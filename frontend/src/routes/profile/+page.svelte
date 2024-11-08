@@ -1,16 +1,15 @@
 <script lang="ts">
     import "tailwindcss/tailwind.css";
     import { supabase } from '$lib/supabaseClient'; 
-    import AdminDashboard from "$lib/components/administrator/AdminDashboard.svelte";
-    import DepartmentDashboard from "$lib/components/departments/DepartmentDashboard.svelte";
 
     export let data: { session: any };
     const { session } = data;
 
-    let profile: { first_name?: string; last_name?: string; role?: string; profile_pic?: string; email? : string } | null = null;
+    let profile: { first_name?: string; last_name?: string; role?: string; profile_pic?: string; email?: string } | null = null;
     let loading = true;
     let saving = false;
     let profilePicFile: File | null = null;
+    let uploadedImageUrl: string | null = null; // Store the uploaded image URL
 
     // Fetch the user's profile details
     const fetchUserProfile = async () => {
@@ -26,6 +25,7 @@
                 console.error("Error fetching user profile:", error.message);
             } else {
                 profile = data;
+                uploadedImageUrl = profile.profile_pic || null; // Load the initial profile picture
             }
         }
         loading = false; 
@@ -40,6 +40,7 @@
             // Upload profile picture if a new file is selected
             let profilePicUrl = profile.profile_pic;
             if (profilePicFile) {
+                console.log("Uploading new profile picture...");
                 const { data: uploadData, error: uploadError } = await supabase
                     .storage
                     .from("profile-pictures")
@@ -51,7 +52,10 @@
                 if (uploadError) {
                     console.error("Error uploading profile picture:", uploadError.message);
                 } else if (uploadData) {
+                    console.log("Upload successful:", uploadData);
                     profilePicUrl = supabase.storage.from("profile-pictures").getPublicUrl(uploadData.path).data.publicUrl;
+                    console.log("Public URL of profile picture:", profilePicUrl);
+                    uploadedImageUrl = profilePicUrl; // Display the uploaded image
                 }
             }
 
@@ -69,6 +73,7 @@
             if (error) {
                 console.error("Error updating profile:", error.message);
             } else {
+                console.log("Profile updated successfully!");
                 alert("Profile updated successfully!");
             }
             saving = false;
@@ -79,6 +84,9 @@
     const handleProfilePicChange = (event: Event) => {
         const target = event.target as HTMLInputElement;
         profilePicFile = target.files ? target.files[0] : null;
+        if (profilePicFile) {
+            console.log("Selected file for upload:", profilePicFile.name);
+        }
     };
 
     fetchUserProfile();
@@ -92,8 +100,8 @@
                 <p class="text-white">Loading...</p>
             {:else if session !== null && profile}
                 <h1 class="text-white font-bold text-4xl">Edit Profile</h1>
-                {#if profile.profile_pic}
-                    <img src={profile.profile_pic} alt="Profile Picture" class="rounded-full w-32 h-32 mx-auto mb-4" />
+                {#if uploadedImageUrl}
+                    <img src={uploadedImageUrl} alt="Uploaded Profile Picture" class="rounded-full w-32 h-32 mx-auto mb-4" />
                 {/if}
                 <form on:submit|preventDefault={saveProfile} class="mt-4">
                     <div class="mb-4">

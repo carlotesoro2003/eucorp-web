@@ -3,7 +3,11 @@
     import { writable, get } from 'svelte/store';
     import axios from 'axios';
 
-    let goals = writable<{ id: number; goal: string; evaluation: string; achieved: string | null }[]>([]);
+    let goals = writable<{ id: number; goal: string; evaluation: string; achieved: string | null; isLoading: boolean }[]>([]);
+
+    // Dialog state for showing the AI evaluation
+    let showDialog = false;
+    let dialogMessage = '';
 
     // Define the backend URL
     const backendUrl = 'http://localhost:3000/evaluate-goal';
@@ -15,14 +19,30 @@
             const response = await axios.post(backendUrl, { target: goal, evaluation });
 
             // Get the AI evaluation result
-            const aiEvaluation = response.data.aiEvaluation;
+            let aiEvaluation = response.data.aiEvaluation;
 
-            // Update the specific goal's "achieved" field
+            // Prefix with "Yes" or "No" based on the content of aiEvaluation
+            const negativeKeywords = ["not achieved", "unsuccessful", "failed", "incomplete", "fell short", "below target", "did not meet"];
+
+            const isAchieved = !negativeKeywords.some(neg => aiEvaluation.toLowerCase().includes(neg));
+
+            // Prefix with "Yes" or "No" based on whether the goal is achieved
+            aiEvaluation = `${isAchieved ? "Yes: " : "No: "} ${aiEvaluation}`;
+
+
+            // Update the specific goal's "achieved" field with the prefixed result
             goals.update(currentGoals =>
-                currentGoals.map(g => g.id === id ? { ...g, achieved: aiEvaluation } : g)
+                currentGoals.map(g => g.id === id ? { ...g, achieved: aiEvaluation, isLoading: false } : g)
             );
+
+            // Show the dialog with the AI evaluation result
+            dialogMessage = aiEvaluation;
+            showDialog = true;
         } catch (error) {
             console.error("Error evaluating goal:", error);
+            goals.update(currentGoals =>
+                currentGoals.map(g => g.id === id ? { ...g, isLoading: false } : g)
+            );
         }
     }
 
@@ -39,7 +59,7 @@
     // Handle input changes
     function handleInput(id: number, field: 'goal' | 'evaluation', value: string) {
         goals.update(currentGoals =>
-            currentGoals.map(g => g.id === id ? { ...g, [field]: value } : g)
+            currentGoals.map(g => g.id === id ? { ...g, [field]: value} : g)
         );
     }
 
@@ -47,7 +67,7 @@
     const addGoalRow = () => {
         goals.update(currentGoals => [
             ...currentGoals,
-            { id: Date.now(), goal: '', evaluation: '', achieved: null }
+            { id: Date.now(), goal: '', evaluation: '', achieved: null, isLoading: false }
         ]);
     };
 
@@ -58,6 +78,12 @@
 
     // Add an initial goal row if none exist
     $: if (get(goals).length === 0) addGoalRow();
+
+    // Function to open the dialog with a specific message
+    function openDialog(message: string) {
+        dialogMessage = message;
+        showDialog = true;
+    }
 </script>
 
 <!-- Page Layout -->
@@ -77,7 +103,7 @@
             </tr>
         </thead>
         <tbody>
-            {#each $goals as { id, goal, evaluation, achieved }}
+            {#each $goals as { id, goal, evaluation, achieved, isLoading }}
                 <tr class="border-b">
                     <td class="px-6 py-4">
                         <input
@@ -95,16 +121,28 @@
                             on:input={(e) => handleInput(id, 'evaluation', (e.target as HTMLInputElement).value)}
                         />
                     </td>
-                    <td class="px-6 py-4">{achieved || 'Pending'}</td>
                     <td class="px-6 py-4">
-                        <!-- Add the Evaluate button for each goal -->
+                        {#if isLoading}
+                            <div class="spinner border-t-4 border-blue-500 rounded-full w-6 h-6 animate-spin"></div>
+                        {:else if achieved}
+                            <span
+                                class="text-blue-500 cursor-pointer underline"
+                                role="button"
+                                tabindex="0"
+                                on:click={() => openDialog(achieved)}
+                                on:keydown={(e) => e.key === 'Enter' && openDialog(achieved)}
+                            >
+                                {achieved.startsWith("Yes") ? "Achieved" : "Not Achieved"}
+                            </span>
+                        {:else}
+                            Pending
+                        {/if}
+                    </td>
+                    <td class="px-6 py-4">
                         <button
-                        on:click={() => evaluateGoal(id, goal, evaluation)}
-                        class="btn btn-ghost btn-sm"
-                        class:bg-green-400={!goal || !evaluation} 
-                        class:text-gray-700={!goal || !evaluation} 
-                        class:cursor-not-allowed={!goal || !evaluation}
-                        disabled={!goal || !evaluation}
+                            on:click={() => evaluateGoal(id, goal, evaluation)}
+                            class="btn btn-ghost btn-sm"
+                            disabled={!goal || !evaluation}
                         >
                             Evaluate
                         </button>
@@ -116,16 +154,27 @@
             {/each}
         </tbody>
     </table>
+
+    <!-- Modal Dialog for AI Evaluation Result -->
+    {#if showDialog}
+        <div class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50">
+            <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+                <h2 class="text-lg font-bold mb-4">AI Evaluation Statement</h2>
+                <p class="mb-4">{dialogMessage}</p>
+                <button on:click={() => (showDialog = false)} class="btn btn-primary w-full">
+                    Close
+                </button>
+            </div>
+        </div>
+    {/if}
 </div>
 
 <style>
     .btn-primary {
-        background-color: #3b82f6;
         color: white;
     }
 
     .btn-secondary {
-        background-color: #4ade80;
         color: white;
     }
 

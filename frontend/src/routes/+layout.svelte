@@ -60,9 +60,9 @@
     <div>
       {#if session !== null}
         <a href="/dashboard" class="btn btn-ghost">Dashboard</a>
-        <a href="/profile" class="btn btn-ghost">Profile</a>   
         <a href="/monitoring" class="btn btn-ghost">Monitoring</a> 
         <a href="/users" class="btn btn-ghost">Users</a> 
+        <a href="/departments" class="btn btn-ghost">Departments</a> 
         {:else}
         <a href="/" class="btn btn-ghost text-xl">EuCorp</a>
       {/if}
@@ -73,7 +73,7 @@
       {#if session === null}
         <button on:click={() => goto("/login")} class="btn btn-ghost">Login</button>
       {:else}
-        <span class="text-white text-lg ml-2">{session.user.email}</span>
+        <a  href="/profile" class="text-white text-lg ml-2">{session.user.email}</a >
         {#if loggingOut}
           <div class="loader">Logging out...</div> <!-- Display during logout -->
         {:else}

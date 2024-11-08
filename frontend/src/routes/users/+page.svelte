@@ -8,6 +8,7 @@
     let departments: Array<{ id: number; name: string }> = [];
     let selectedDepartment: number | null = null; // Default is null for showing all departments
 
+    
     // Fetch all users from the profiles table, including department names
     onMount(async () => {
         // Fetch departments
@@ -56,7 +57,7 @@
     <div class="mb-4">
         <label for="department-filter" class="text-white">Filter by Department:</label>
         <select id="department-filter" bind:value={selectedDepartment} class="input input-bordered w-full">
-            <option value="">All Departments</option>
+            <option value={null}>All Departments</option> <!-- Default option to show all -->
             {#each departments as { id, name }}
                 <option value={id}>{name}</option>
             {/each}
